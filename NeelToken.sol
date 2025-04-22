@@ -1,116 +1,77 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-contract ProposalContract {
-    // ****************** Data ***********************
 
-    address public owner;
-    uint256 private counter;
+contract NeekToken {
 
-    struct Proposal {
+
+    // This is the owner of the contract
+    address owner;
+
+
+    // This is our counter struct. It will hold necessary information about the counter which are
+    // number and description
+    struct Counter {
+        uint number;
         string description;
-        uint256 approve;
-        uint256 reject;
-        uint256 pass;
-        uint256 total_vote_to_end;
-        bool current_state;
-        bool is_active;
-        string title;
     }
 
-    mapping(uint256 => Proposal) public proposal_history;
-    address[] private voted_addresses;
 
-    // ****************** Constructor ***********************
+    // Here we create an instance of our Counter.
+    // It is empty for now, but we will initialize it in the constructor.
+    Counter counter;
 
-    constructor() {
-        owner = msg.sender;
-        voted_addresses.push(msg.sender); // Exclude owner from voting again
-    }
 
-    // ****************** Modifiers ***********************
-
+    // We will use this modidifer with our execute functions.
+    // This modifiers make sure that the caller of the function is the owner of the contract.
     modifier onlyOwner() {
-        require(msg.sender == owner, "Not owner");
+        require(msg.sender == owner, "Only the owner can increment or decrement the counter");
         _;
     }
 
-    modifier active() {
-        require(proposal_history[counter].is_active == true, "No active proposal");
-        _;
+
+    // This is our constructor function. It only runs once when we deploy the contract.
+    // Since it takes two parameters, initial_value and description, they should be provided
+    // when we deploy our contract.
+    constructor(uint initial_value, string memory description) {
+        owner = msg.sender;
+        counter = Counter(initial_value, description);
     }
 
-    modifier newVoter(address _address) {
-        require(!isVoted(_address), "Address has already voted");
-        _;
+
+    // Below, we have two execute functions, increment_counter and decrement_counter
+    // Since they modify data on chain, they require gas fee.
+    // They are external functions, meaning they can only be called outside of the contract.
+    // They also have the onlyOwner modifier which we created above. This make sure that
+    // only the owner of this contract can call these functions.
+
+
+    // This function gets the number field from the counter struct and increases it by one.
+    function increment_counter() external onlyOwner {
+        counter.number += 1;
     }
 
-    // ****************** Core Functions ***********************
 
-    function setOwner(address new_owner) external onlyOwner {
-        owner = new_owner;
+    // This function is similar the one above, but instead of increasing we deacrease the number by one.
+    function decrement_counter() external onlyOwner {
+        counter.number -= 1;
     }
 
-    function createProposal(string calldata _description, uint256 _total_vote_to_end, string calldata _title) external onlyOwner {
-        counter += 1;
-        proposal_history[counter] = Proposal(_description, 0, 0, 0, _total_vote_to_end, false, true, _title);
-        voted_addresses = [owner]; // Reset for new proposal
+
+    // The function below is a query function.
+    // It does not change any data on the chain. It just rerieves data.
+    // We use the keyword view to indicate it retrieves data but does not change any.
+    // Since we are not modifying any data, we do not pay any gas fee.
+
+
+    // This function returns the number field of our counter struct.
+    // Returning the current state of our counter.
+    function get_counter_value() external view returns(uint) {
+        return counter.number;
     }
 
-    function vote(uint8 choice) external active newVoter(msg.sender) {
-        Proposal storage proposal = proposal_history[counter];
-
-        voted_addresses.push(msg.sender);
-
-        if (choice == 1) {
-            proposal.approve += 1;
-        } else if (choice == 2) {
-            proposal.reject += 1;
-        } else if (choice == 0) {
-            proposal.pass += 1;
-        } else {
-            revert("Invalid vote option");
-        }
-
-        proposal.current_state = calculateCurrentState();
-
-        uint256 total_votes = proposal.approve + proposal.reject + proposal.pass;
-        if (total_votes >= proposal.total_vote_to_end) {
-            proposal.is_active = false;
-        }
-    }
-
-    // ****************** New Logic: 60% Approval Needed ***********************
-
-    function calculateCurrentState() private view returns (bool) {
-        Proposal storage proposal = proposal_history[counter];
-
-        uint256 total_votes = proposal.approve + proposal.reject + proposal.pass;
-        if (total_votes == 0) return false;
-
-        // Calculate approval percentage (multiplied by 100 to avoid decimals)
-        uint256 approvePercentage = (proposal.approve * 100) / total_votes;
-
-        // Proposal succeeds only if approval is 60% or more
-        return approvePercentage >= 60;
-    }
-
-    // ****************** Helpers ***********************
-
-    function isVoted(address _address) private view returns (bool) {
-        for (uint256 i = 0; i < voted_addresses.length; i++) {
-            if (voted_addresses[i] == _address) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function getCurrentProposalId() external view returns (uint256) {
-        return counter;
-    }
-
-    function getProposal(uint256 id) external view returns (Proposal memory) {
-        return proposal_history[id];
+    //This function returns the description which is in the string.
+    function get_string_description() external  view returns (string memory) {
+        return counter.description;
     }
 }
